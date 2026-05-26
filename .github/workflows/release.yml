@@ -1,0 +1,39 @@
+name: Manual Release Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-package-kit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kit
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: kit
+      - uses: actions/checkout@v4
+        with:
+          repository: Moorline/moorline
+          path: moorline
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun --cwd ../moorline install --frozen-lockfile
+      - run: bun --cwd ../moorline run --filter '@moorline/contracts' build
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run build
+      - run: mkdir -p dist/npm-pack
+      - run: npm pack ./packages/package-kit --pack-destination dist/npm-pack
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-kit-npm-package
+          path: dist/npm-pack/*.tgz

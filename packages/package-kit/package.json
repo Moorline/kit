@@ -1,0 +1,37 @@
+{
+  "name": "@moorline/package-kit",
+  "version": "0.0.1",
+  "description": "Node-first Moorline package authoring and bundling tool",
+  "type": "module",
+  "private": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "moorline-package-kit": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/clean-package-dist.mjs package-kit && tsc -p tsconfig.json && node ../../scripts/flatten-package-dist.mjs package-kit",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@moorline/contracts": "0.0.1",
+    "esbuild": "^0.25.9",
+    "semver": "^7.7.4",
+    "tar": "^7.4.3"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Moorline/kit.git",
+    "directory": "packages/package-kit"
+  }
+}
