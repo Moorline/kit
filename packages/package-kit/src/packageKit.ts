@@ -97,6 +97,7 @@ export interface NpmPackPackageInput {
   outDir: string;
   npmName: string;
   access?: 'public';
+  embeddedMemberSourceDirs?: string[];
 }
 
 export interface NpmPackPackageResult {
@@ -698,6 +699,18 @@ function npmPackagePath(outDir: string, npmName: string): string {
   return join(outDir, scope!, name!);
 }
 
+function installSurfaceDir(surface: PackageKind): string {
+  return surface === 'api-adapter'
+    ? 'api-adapters'
+    : surface === 'bundle'
+      ? 'bundles'
+      : `${surface}s`;
+}
+
+function embeddedMemberPackagePath(bundleDir: string, surface: PackageKind, packageId: string): string {
+  return join(bundleDir, 'packages', installSurfaceDir(surface), ...packageId.split('/'));
+}
+
 function generatedPackageJson(input: {
   npmName: string;
   manifest: AnyManifest;
@@ -927,6 +940,31 @@ export async function npmPackPackage(input: NpmPackPackageInput): Promise<NpmPac
   rmSync(npmPackageDir, { recursive: true, force: true });
   mkdirSync(dirname(npmPackageDir), { recursive: true });
   cpSync(bundled.bundleDir, npmPackageDir, { recursive: true });
+  if (input.embeddedMemberSourceDirs && input.embeddedMemberSourceDirs.length > 0) {
+    if (bundled.surface !== 'bundle') {
+      throw new Error('embeddedMemberSourceDirs can only be used when npm-packing a bundle package.');
+    }
+    const allowedMembers = new Set(
+      (bundled.manifest as BundlePackageManifest).members.map((member) => `${member.kind}:${member.packageId}`)
+    );
+    for (const memberSourceDir of input.embeddedMemberSourceDirs) {
+      const resolvedMemberSourceDir = resolve(memberSourceDir);
+      const member = loadManifest(undefined, resolvedMemberSourceDir);
+      if (member.surface === 'bundle') {
+        throw new Error(`Bundle package ${bundled.manifest.id} cannot embed bundle member ${member.manifest.id}.`);
+      }
+      const memberKey = `${member.surface}:${member.manifest.id}`;
+      if (!allowedMembers.has(memberKey)) {
+        throw new Error(`Embedded member ${memberKey} is not declared in bundle ${bundled.manifest.id}.`);
+      }
+      await bundlePackage({
+        sourceDir: resolvedMemberSourceDir,
+        outDir: embeddedMemberPackagePath(npmPackageDir, member.surface, member.manifest.id),
+        surface: member.surface,
+        runtimeSmoke: false
+      });
+    }
+  }
   const packageJson = generatedPackageJson({
     npmName: input.npmName,
     manifest: bundled.manifest,

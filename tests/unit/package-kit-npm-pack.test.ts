@@ -100,6 +100,46 @@ function writeOfficialHttpAdapterSource(root: string): void {
   );
 }
 
+function writeBundleSource(root: string): void {
+  mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, 'package.json'), JSON.stringify({
+    name: '@acme/moorline-defaults',
+    version: '1.0.0',
+    description: 'Acme default Moorline package bundle.',
+    type: 'module',
+    private: false,
+    license: 'MIT',
+    repository: {
+      type: 'git',
+      url: 'git+https://github.com/acme/moorline-defaults.git'
+    }
+  }, null, 2));
+  writeFileSync(join(root, 'manifest.json'), JSON.stringify({
+    id: 'acme/defaults',
+    name: 'acme/defaults',
+    version: '1.0.0',
+    type: 'bundle',
+    description: 'Acme default bundle',
+    members: [
+      {
+        kind: 'plugin',
+        packageId: 'acme/slack',
+        version: '~1.0.0',
+        activation: 'enable'
+      }
+    ]
+  }, null, 2));
+  writeFileSync(join(root, 'moorline.dist.json'), JSON.stringify({
+    schemaVersion: 1,
+    display: {
+      name: 'Acme Defaults',
+      description: 'Acme default bundle',
+      version: '1.0.0',
+      tags: ['defaults']
+    }
+  }, null, 2));
+}
+
 describe('npmPackPackage', () => {
   it('generates scoped npm package metadata and a valid tarball', async () => {
     const root = createTempRoot('moorline-npm-pack-');
@@ -220,6 +260,38 @@ describe('npmPackPackage', () => {
     ]));
     await expect(validatePackagePath({ path: result.tarballPath!, surface: 'api-adapter' })).resolves.toMatchObject({
       surface: 'api-adapter'
+    });
+  });
+
+  it('embeds declared member packages into bundle npm packages', async () => {
+    const root = createTempRoot('moorline-npm-pack-bundle-');
+    const bundleSourceDir = join(root, 'bundle');
+    const pluginSourceDir = join(root, 'plugin');
+    const outDir = join(root, 'out', 'npm-packages');
+    writeBundleSource(bundleSourceDir);
+    writePluginSource(pluginSourceDir);
+
+    const result = await npmPackPackage({
+      sourceDir: bundleSourceDir,
+      outDir,
+      npmName: '@acme/moorline-defaults',
+      embeddedMemberSourceDirs: [pluginSourceDir]
+    });
+
+    expect(existsSync(join(result.npmPackageDir, 'packages', 'plugins', 'acme', 'slack', 'manifest.json'))).toBe(true);
+    expect(existsSync(join(result.npmPackageDir, 'packages', 'plugins', 'acme', 'slack', 'index.mjs'))).toBe(true);
+    const packageJson = JSON.parse(readFileSync(join(result.npmPackageDir, 'package.json'), 'utf8')) as Record<string, unknown>;
+    expect(packageJson).not.toHaveProperty('dependencies');
+    const dryRun = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', result.npmPackageDir], { encoding: 'utf8' })) as Array<{
+      files: Array<{ path: string }>;
+    }>;
+    expect(dryRun[0]?.files.map((file) => file.path)).toEqual(expect.arrayContaining([
+      'manifest.json',
+      'packages/plugins/acme/slack/manifest.json',
+      'packages/plugins/acme/slack/index.mjs'
+    ]));
+    await expect(validatePackagePath({ path: result.tarballPath!, surface: 'bundle' })).resolves.toMatchObject({
+      surface: 'bundle'
     });
   });
 });
