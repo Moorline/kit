@@ -108,6 +108,14 @@ export interface NpmPackPackageResult {
   tarballPath?: string;
 }
 
+interface SourcePackageMetadata {
+  description?: string;
+  license?: string;
+  repository?: string | Record<string, string>;
+  homepage?: string;
+  keywords?: string[];
+}
+
 function readJson(path: string): unknown {
   return JSON.parse(readFileSync(path, 'utf8')) as unknown;
 }
@@ -118,6 +126,70 @@ function packageFamilyForKind(kind: PackageKind): PackageFamily {
 
 function exists(path: string): boolean {
   return existsSync(path);
+}
+
+function optionalPackageJsonString(value: unknown, context: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${context} must be a non-empty string when provided.`);
+  }
+  return value;
+}
+
+function optionalPackageJsonRepository(value: unknown): SourcePackageMetadata['repository'] {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'string') {
+    if (!value.trim()) {
+      throw new Error('package.json.repository must be a non-empty string when provided.');
+    }
+    return value;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('package.json.repository must be a string or object when provided.');
+  }
+  const raw = value as Record<string, unknown>;
+  const repository: Record<string, string> = {};
+  for (const key of ['type', 'url', 'directory']) {
+    const field = raw[key];
+    if (field !== undefined) {
+      if (typeof field !== 'string' || !field.trim()) {
+        throw new Error(`package.json.repository.${key} must be a non-empty string when provided.`);
+      }
+      repository[key] = field;
+    }
+  }
+  if (Object.keys(repository).length === 0) {
+    throw new Error('package.json.repository must include type, url, or directory when provided.');
+  }
+  return repository;
+}
+
+function readSourcePackageMetadata(sourceDir: string): SourcePackageMetadata {
+  const packageJsonPath = join(sourceDir, 'package.json');
+  if (!exists(packageJsonPath)) {
+    return {};
+  }
+  const raw = readJson(packageJsonPath);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('package.json must be an object.');
+  }
+  const packageJson = raw as Record<string, unknown>;
+  const description = optionalPackageJsonString(packageJson.description, 'package.json.description');
+  const license = optionalPackageJsonString(packageJson.license, 'package.json.license');
+  const repository = optionalPackageJsonRepository(packageJson.repository);
+  const homepage = optionalPackageJsonString(packageJson.homepage, 'package.json.homepage');
+  const keywords = validateStringArray(packageJson.keywords, 'package.json.keywords');
+  return {
+    ...(description ? { description } : {}),
+    ...(license ? { license } : {}),
+    ...(repository ? { repository } : {}),
+    ...(homepage ? { homepage } : {}),
+    ...(keywords ? { keywords } : {})
+  };
 }
 
 function inferSurfaceFromManifest(manifest: Record<string, unknown>): PackageKind {
@@ -631,14 +703,20 @@ function generatedPackageJson(input: {
   manifest: AnyManifest;
   surface: PackageKind;
   distro: ResolvedMoorlineDistroMetadata;
+  sourcePackage?: SourcePackageMetadata;
 }): Record<string, unknown> {
   const namespace = input.manifest.id.split('/')[0]!;
   const distroTags = input.distro.display.tags ?? [];
+  const sourceKeywords = input.sourcePackage?.keywords ?? [];
+  const description = input.sourcePackage?.description ?? input.distro.display.description;
+  const license = input.sourcePackage?.license ?? input.distro.display.license ?? 'UNLICENSED';
+  const homepage = input.sourcePackage?.homepage ?? input.distro.display.homepageUrl;
   const keywords = [
     'moorline-package',
     `moorline-kind-${input.surface}`,
     `moorline-namespace-${namespace}`,
     packageIdKeyword(input.manifest.id),
+    ...sourceKeywords.map((keyword) => npmKeywordSafe(keyword)).filter((keyword): keyword is string => Boolean(keyword)),
     ...distroTags.map((tag) => npmKeywordSafe(tag)).filter((tag): tag is string => Boolean(tag))
   ];
   const runtimeEntrypoint =
@@ -670,10 +748,15 @@ function generatedPackageJson(input: {
   return {
     name: input.npmName,
     version: input.manifest.version,
-    description: input.distro.display.description,
-    license: input.distro.display.license ?? 'UNLICENSED',
+    description,
+    license,
     type: 'module',
     ...(['bundle', 'skill'].includes(input.surface) ? {} : runtimeEntrypoint),
+    ...(input.sourcePackage?.repository ? { repository: input.sourcePackage.repository } : {}),
+    ...(homepage ? { homepage } : {}),
+    publishConfig: {
+      access: 'public'
+    },
     keywords: [...new Set(keywords)],
     moorline: {
       schemaVersion: 1,
@@ -831,10 +914,12 @@ export async function npmPackPackage(input: NpmPackPackageInput): Promise<NpmPac
   if (input.access && input.access !== 'public') {
     throw new Error(`Unsupported npm access mode: ${input.access}`);
   }
+  const sourceDir = resolve(input.sourceDir);
   const outDir = resolve(input.outDir);
   const bundleDir = join(outDir, '.moorline-bundle-work', input.npmName.replace(/^@/u, '').replace('/', '-'));
+  const sourcePackage = readSourcePackageMetadata(sourceDir);
   const bundled = await bundlePackage({
-    sourceDir: input.sourceDir,
+    sourceDir,
     outDir: bundleDir,
     runtimeSmoke: false
   });
@@ -846,7 +931,8 @@ export async function npmPackPackage(input: NpmPackPackageInput): Promise<NpmPac
     npmName: input.npmName,
     manifest: bundled.manifest,
     surface: bundled.surface,
-    distro: bundled.distro
+    distro: bundled.distro,
+    sourcePackage
   });
   validateGeneratedNpmPackageJson(packageJson, bundled.manifest, bundled.surface);
   writeFileSync(join(npmPackageDir, 'package.json'), `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8');

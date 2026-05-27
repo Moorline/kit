@@ -7,6 +7,19 @@ import { createTempRoot } from '../helpers/temp.js';
 
 function writePluginSource(root: string): void {
   mkdirSync(root, { recursive: true });
+  writeFileSync(join(root, 'package.json'), JSON.stringify({
+    name: '@acme/slack',
+    version: '1.0.0',
+    description: 'Acme Slack bridge for Moorline.',
+    type: 'module',
+    private: false,
+    keywords: ['slack', 'team chat'],
+    license: 'MIT',
+    repository: {
+      type: 'git',
+      url: 'git+https://github.com/acme/moorline-slack.git'
+    }
+  }, null, 2));
   writeFileSync(join(root, 'manifest.json'), JSON.stringify({
     id: 'acme/slack',
     name: 'acme/slack',
@@ -36,6 +49,19 @@ function writeOfficialHttpAdapterSource(root: string): void {
   mkdirSync(join(root, '..', 'core', 'resources', 'policies'), { recursive: true });
   writeFileSync(join(root, '..', 'core', 'resources', 'migrations', '001_sessions.sql'), '-- migration\n');
   writeFileSync(join(root, '..', 'core', 'resources', 'policies', 'default-secure.json'), '{}\n');
+  writeFileSync(join(root, 'package.json'), JSON.stringify({
+    name: '@moorline/http',
+    version: '1.0.0',
+    description: 'Official Moorline HTTP API adapter.',
+    type: 'module',
+    private: false,
+    license: 'MIT',
+    repository: {
+      type: 'git',
+      url: 'git+ssh://git@github.com/Moorline/moorline.git',
+      directory: 'packages/http'
+    }
+  }, null, 2));
   writeFileSync(join(root, 'manifest.json'), JSON.stringify({
     id: 'official/http',
     name: 'official/http',
@@ -91,6 +117,15 @@ describe('npmPackPackage', () => {
     expect(packageJson).toMatchObject({
       name: '@acme/moorline-slack',
       version: '1.0.0',
+      description: 'Acme Slack bridge for Moorline.',
+      license: 'MIT',
+      repository: {
+        type: 'git',
+        url: 'git+https://github.com/acme/moorline-slack.git'
+      },
+      publishConfig: {
+        access: 'public'
+      },
       moorline: {
         schemaVersion: 1,
         packageId: 'acme/slack',
@@ -103,7 +138,8 @@ describe('npmPackPackage', () => {
       'moorline-package',
       'moorline-kind-plugin',
       'moorline-namespace-acme',
-      'moorline-id-acme-slack'
+      'moorline-id-acme-slack',
+      'team-chat'
     ]));
     expect(result.tarballPath && existsSync(result.tarballPath)).toBe(true);
     const dryRun = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', result.npmPackageDir], { encoding: 'utf8' })) as Array<{
@@ -143,6 +179,8 @@ describe('npmPackPackage', () => {
     expect(packageJson).toMatchObject({
       name: '@moorline/http',
       version: '1.0.0',
+      description: 'Official Moorline HTTP API adapter.',
+      license: 'MIT',
       main: './index.mjs',
       types: './index.d.ts',
       exports: {
@@ -160,6 +198,10 @@ describe('npmPackPackage', () => {
         packageId: 'official/http',
         kind: 'api-adapter'
       }
+    });
+    expect(packageJson.repository).toMatchObject({
+      url: 'git+ssh://git@github.com/Moorline/moorline.git',
+      directory: 'packages/http'
     });
     expect(packageJson.keywords).toEqual(expect.arrayContaining([
       'moorline-kind-api-adapter',
