@@ -29,6 +29,11 @@ jobs:
       - run: cd ../moorline && bun install --frozen-lockfile
       - run: bun --cwd ../moorline run --filter '@moorline/contracts' build
       - run: bun install --frozen-lockfile
+      - name: Link local contracts
+        run: |
+          mkdir -p node_modules/@moorline
+          rm -rf node_modules/@moorline/contracts
+          ln -s "${GITHUB_WORKSPACE}/moorline/packages/contracts" node_modules/@moorline/contracts
       - run: bun run check
       - run: bun run build
       - run: mkdir -p dist/npm-pack
