@@ -22,7 +22,7 @@
       "name": "@moorline/package-kit",
       "version": "0.0.1",
       "bin": {
-        "moorline-package-kit": "./dist/cli.js",
+        "moorline-package-kit": "dist/cli.js",
       },
       "dependencies": {
         "@moorline/contracts": "0.0.1",
@@ -31,9 +31,6 @@
         "tar": "^7.4.3",
       },
     },
-  },
-  "overrides": {
-    "@moorline/contracts": "file:../moorline/packages/contracts",
   },
   "packages": {
     "@ampproject/remapping": ["@ampproject/remapping@2.3.0", "", { "dependencies": { "@jridgewell/gen-mapping": "^0.3.5", "@jridgewell/trace-mapping": "^0.3.24" } }, "sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw=="],
@@ -141,6 +138,8 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
+    "@moorline/contracts": ["@moorline/contracts@0.0.1", "", {}, "sha512-P08ZAIAVrHn7X2eIjc9SddmUgajBXOBOI6/6ByiS+vXML46CGqh7loqsWXlRusB3I9OwksDIox6I9c/Ulsds2w=="],
 
     "@moorline/package-kit": ["@moorline/package-kit@workspace:packages/package-kit"],
 
@@ -529,8 +528,6 @@
     "@eslint-community/eslint-utils/eslint-visitor-keys": ["eslint-visitor-keys@3.4.3", "", {}, "sha512-wpc+LXeiyiisxPlEkUzU6svyS1frIO3Mgxj1fdy7Pm8Ygzguax2N3Fa/D/ag1WqbOprdI+uY6wMUl8/a2G+iag=="],
 
     "@eslint/eslintrc/ignore": ["ignore@5.3.2", "", {}, "sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g=="],
-
-    "@moorline/package-kit/@moorline/contracts": ["@moorline/contracts@file:../moorline/packages/contracts", {}],
 
     "@typescript-eslint/typescript-estree/minimatch": ["minimatch@10.2.5", "", { "dependencies": { "brace-expansion": "^5.0.5" } }, "sha512-MULkVLfKGYDFYejP07QOurDLLQpcjk7Fw+7jXS2R2czRQzR56yHRveU5NDJEOviH+hETZKSkIk5c+T23GjFUMg=="],
 

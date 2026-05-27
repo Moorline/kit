@@ -12,9 +12,6 @@
   "workspaces": [
     "packages/*"
   ],
-  "resolutions": {
-    "@moorline/contracts": "file:../moorline/packages/contracts"
-  },
   "type": "module",
   "scripts": {
     "build": "node scripts/clean-dist.mjs && bun run build:packages",
