@@ -37,7 +37,6 @@ export async function cleanupTempRoots(options: { testFailed?: boolean } = {}): 
   }
 }
 
-afterEach(async (context) => {
-  const task = context.task as { result?: { state?: string } } | undefined;
-  await cleanupTempRoots({ testFailed: task?.result?.state === 'fail' });
+afterEach(async () => {
+  await cleanupTempRoots();
 });

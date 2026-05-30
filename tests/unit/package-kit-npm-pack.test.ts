@@ -45,15 +45,31 @@ function writePluginSource(root: string): void {
 
 function writeOfficialHttpAdapterSource(root: string): void {
   mkdirSync(root, { recursive: true });
-  mkdirSync(join(root, '..', 'core', 'resources', 'migrations'), { recursive: true });
-  mkdirSync(join(root, '..', 'core', 'resources', 'policies'), { recursive: true });
-  writeFileSync(join(root, '..', 'core', 'resources', 'migrations', '001_sessions.sql'), '-- migration\n');
-  writeFileSync(join(root, '..', 'core', 'resources', 'policies', 'default-secure.json'), '{}\n');
+  mkdirSync(join(root, 'resources', 'migrations'), { recursive: true });
+  mkdirSync(join(root, 'resources', 'policies'), { recursive: true });
+  writeFileSync(join(root, 'resources', 'migrations', '001_sessions.sql'), '-- migration\n');
+  writeFileSync(join(root, 'resources', 'policies', 'default-secure.json'), '{}\n');
   writeFileSync(join(root, 'package.json'), JSON.stringify({
     name: '@moorline/http',
     version: '1.0.0',
     description: 'Official Moorline HTTP API adapter.',
     type: 'module',
+    main: './index.mjs',
+    types: './index.d.ts',
+    exports: {
+      '.': {
+        types: './index.d.ts',
+        default: './index.mjs'
+      },
+      './server': {
+        types: './server.d.ts',
+        default: './server.mjs'
+      },
+      './server.js': {
+        types: './server.d.ts',
+        default: './server.mjs'
+      }
+    },
     private: false,
     license: 'MIT',
     repository: {

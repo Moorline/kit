@@ -115,6 +115,9 @@ interface SourcePackageMetadata {
   repository?: string | Record<string, string>;
   homepage?: string;
   keywords?: string[];
+  main?: string;
+  types?: string;
+  exports?: unknown;
 }
 
 function readJson(path: string): unknown {
@@ -183,13 +186,18 @@ function readSourcePackageMetadata(sourceDir: string): SourcePackageMetadata {
   const license = optionalPackageJsonString(packageJson.license, 'package.json.license');
   const repository = optionalPackageJsonRepository(packageJson.repository);
   const homepage = optionalPackageJsonString(packageJson.homepage, 'package.json.homepage');
+  const main = optionalPackageJsonString(packageJson.main, 'package.json.main');
+  const types = optionalPackageJsonString(packageJson.types, 'package.json.types');
   const keywords = validateStringArray(packageJson.keywords, 'package.json.keywords');
   return {
     ...(description ? { description } : {}),
     ...(license ? { license } : {}),
     ...(repository ? { repository } : {}),
     ...(homepage ? { homepage } : {}),
-    ...(keywords ? { keywords } : {})
+    ...(keywords ? { keywords } : {}),
+    ...(main ? { main } : {}),
+    ...(types ? { types } : {}),
+    ...(packageJson.exports !== undefined ? { exports: packageJson.exports } : {})
   };
 }
 
@@ -509,7 +517,7 @@ function copyOfficialHttpRuntimeAssets(sourceDir: string, outDir: string, manife
   if (manifest.id !== 'official/http') {
     return;
   }
-  const resourcesRoot = resolve(sourceDir, '..', 'core', 'resources');
+  const resourcesRoot = resolve(sourceDir, 'resources');
   if (existsSync(resourcesRoot)) {
     cpSync(resourcesRoot, join(outDir, 'resources'), { recursive: true });
   }
@@ -732,32 +740,13 @@ function generatedPackageJson(input: {
     ...sourceKeywords.map((keyword) => npmKeywordSafe(keyword)).filter((keyword): keyword is string => Boolean(keyword)),
     ...distroTags.map((tag) => npmKeywordSafe(tag)).filter((tag): tag is string => Boolean(tag))
   ];
-  const runtimeEntrypoint =
-    input.manifest.id === 'official/http'
-      ? {
-          main: './index.mjs',
-          types: './index.d.ts',
-          exports: {
-            '.': {
-              types: './index.d.ts',
-              default: './index.mjs'
-            },
-            './server': {
-              types: './server.d.ts',
-              default: './server.mjs'
-            },
-            './server.js': {
-              types: './server.d.ts',
-              default: './server.mjs'
-            }
-          }
-        }
-      : {
-          main: './index.mjs',
-          exports: {
-            '.': './index.mjs'
-          }
-        };
+  const runtimeEntrypoint = {
+    main: input.sourcePackage?.main ?? './index.mjs',
+    ...(input.sourcePackage?.types ? { types: input.sourcePackage.types } : {}),
+    exports: input.sourcePackage?.exports ?? {
+      '.': './index.mjs'
+    }
+  };
   return {
     name: input.npmName,
     version: input.manifest.version,
