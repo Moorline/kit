@@ -79,7 +79,7 @@ It tells Moorline how to describe and distribute the package:
 - display `name`
 - `description`
 - `version`
-- catalog tags and category
+- npm discovery tags and category
 - recommendation metadata
 - release and channel metadata
 
@@ -131,7 +131,7 @@ The normal distribution format is a finished bundle, not source code.
 
 An API adapter package exposes Moorline's control API over a protocol. The official shipped adapter is `official/http`, and the official CLI currently talks to HTTP endpoints.
 
-API adapter packages occupy the built-in `api-adapter` activation key. Moorline selects at most one API adapter at a time.
+API adapter packages occupy the core `api-adapter` activation key. Moorline selects at most one API adapter at a time.
 
 ### Provider
 
@@ -143,7 +143,7 @@ Use it when you want to integrate:
 - an app-server style agent runtime
 - a local or remote agent wrapper
 
-Provider packages occupy the built-in `provider` activation key. Moorline activates at most one package for that key; packages that need multiple upstream providers should expose that multiplexing inside a single provider package.
+Provider packages occupy the core `provider` activation key. Moorline activates at most one package for that key; packages that need multiple upstream providers should expose that multiplexing inside a single provider package.
 
 ### Transport
 
@@ -156,7 +156,7 @@ Use it when you want to integrate:
 - email
 - a custom chat surface
 
-Transport packages occupy the built-in `transport` activation key. Moorline activates at most one package for that key; packages that need to bridge multiple external surfaces should expose that multiplexing inside a single transport package.
+Transport packages occupy the core `transport` activation key. Moorline activates at most one package for that key; packages that need to bridge multiple external surfaces should expose that multiplexing inside a single transport package.
 
 ### Plugin
 
@@ -206,10 +206,11 @@ Bundle members declare:
 - package id
 - semantic version range
 - activation behavior: install, select, or enable
+- optional source metadata for members that should not be resolved by package id
 
 Bundles are metadata-only. They should not ship runtime JavaScript behavior; put behavior in provider, transport, plugin, or skill packages.
 
-In this implementation, bundle member resolution is catalog-backed. A local or third-party bundle can be installed as a bundle package, but each member it declares must resolve to package metadata already present in the Moorline catalog. Local-only member source descriptors are not embedded in bundle manifests yet.
+Bundle member resolution is source-backed. Members can be embedded by npm bundle packages, can point at an explicit source descriptor, or can resolve by package id through npm metadata. Do not rely on a host-shipped official catalog.
 
 ## Authoring Structure
 
@@ -441,7 +442,7 @@ Use hard dependencies when your package truly requires another package.
 
 Every package needs `moorline.dist.json`.
 
-Keep discovery, catalog, and distribution metadata here.
+Keep discovery and distribution metadata here.
 
 Required fields:
 
@@ -686,8 +687,8 @@ Runtime code is first imported later when the selected package is actually loade
 
 ## Publishing Through npm
 
-Moorline can discover public npm packages that carry Moorline package metadata.
-Users still install through Moorline CLI commands or the control API; npm is only the temporary artifact and search backend.
+Moorline discovers and installs public npm packages that carry Moorline package metadata.
+Users still install through Moorline CLI commands or the control API; npm is the package distribution, discovery, and search source.
 
 Pack a package for npm:
 
