@@ -175,6 +175,67 @@ Plugins are trusted local runtime code. Moorline validates plugin manifests, dec
 
 Plugins can be activated or deactivated independently. Most plugins do not need an activation key, so many can be activated together.
 
+#### Package State And Jobs
+
+Plugins that need durable local state should use package state through the runtime context instead of asking the host for a feature-specific table. Declare:
+
+```json
+{
+  "capabilities": ["package.state.read", "package.state.write"]
+}
+```
+
+The plugin context exposes:
+
+```js
+const current = context.getPackageState('settings');
+await context.putPackageState('settings', { enabled: true });
+const records = context.listPackageState('items/');
+await context.deletePackageState('settings');
+```
+
+Keys are scoped to the calling package id, so `acme/foo` and `acme/bar` can both use `settings` without colliding. Use prefixes such as `items/` when you need to list a group of records.
+
+Plugins that need recurring work should use package jobs. Declare:
+
+```json
+{
+  "capabilities": ["package.job.manage"]
+}
+```
+
+Then schedule an action from the same package:
+
+```js
+await context.schedulePackageJob({
+  jobId: 'sync:primary',
+  actionId: 'sync.run',
+  schedule: 'every hour',
+  startTime: '09:00',
+  payload: { account: 'primary' }
+});
+```
+
+The runtime will dispatch the package action with the payload plus `jobId` and `scheduledAt`. The package remains responsible for interpreting its payload, updating package state, and cancelling jobs it no longer needs:
+
+```js
+export default {
+  manifest,
+  actions() {
+    return [{ id: 'sync.run', title: 'Run sync', description: 'Internal scheduled sync.' }];
+  },
+  async onAction(event, context) {
+    if (event.actionId !== 'sync.run') return { handled: false };
+    await runSync(event.input.account, context);
+    return { handled: true };
+  }
+};
+
+await context.cancelPackageJob('sync:primary');
+```
+
+Package jobs are for package-owned behavior. If a feature is specific to one package, model it with package state and package jobs rather than adding host-owned concepts.
+
 ### Skill
 
 A skill package is a content add-on.
