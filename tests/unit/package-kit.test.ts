@@ -403,6 +403,74 @@ describe('@moorline/package-kit', () => {
     expect(existsSync(markerPath)).toBe(true);
   });
 
+  it('accepts external event worker plugin manifests structurally', async () => {
+    const bundleDir = createTempRoot('moorline-package-kit-external-worker-');
+    writeFileSync(
+      join(bundleDir, 'manifest.json'),
+      JSON.stringify(
+        {
+          id: 'acme/github-worker',
+          name: 'acme/github-worker',
+          version: '0.0.1',
+          type: 'plugin',
+          description: 'Turns GitHub issue events into durable Moorline work.',
+          entrypoint: 'index.mjs',
+          capabilities: [
+            'package.work.manage',
+            'session.create',
+            'session.direct',
+            'provider.headless.run'
+          ],
+          hooks: ['onExternalEvent']
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    writeFileSync(
+      join(bundleDir, 'moorline.dist.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          name: 'GitHub Worker',
+          description: 'Turns GitHub issue events into durable Moorline work.',
+          version: '0.0.1'
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    writeFileSync(
+      join(bundleDir, 'index.mjs'),
+      [
+        "import manifest from './manifest.json' with { type: 'json' };",
+        'export default {',
+        '  id: manifest.id,',
+        '  manifest,',
+        '  async onExternalEvent(event, context) {',
+        '    await context.enqueueWorkItem({',
+        "      queue: 'github-issues',",
+        '      idempotencyKey: event.idempotencyKey,',
+        '      externalResource: event.resource,',
+        '      payload: { eventName: event.eventName, payload: event.payload }',
+        '    });',
+        '    return { handled: true };',
+        '  }',
+        '};'
+      ].join('\n'),
+      'utf8'
+    );
+
+    const validated = await validatePackagePath({ path: bundleDir, surface: 'plugin' });
+    expect(validated.manifest).toMatchObject({
+      id: 'acme/github-worker',
+      capabilities: ['package.work.manage', 'session.create', 'session.direct', 'provider.headless.run'],
+      hooks: ['onExternalEvent']
+    });
+  });
+
   it('rejects archive validation when tar entries attempt path traversal', async () => {
     const root = createTempRoot('moorline-package-kit-traversal-');
     const bundleDir = join(root, 'bundle');

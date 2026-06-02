@@ -1,6 +1,6 @@
 # Package Authoring
 
-This guide is for third-party developers who want to create Moorline packages for other users.
+This guide is for developers who want to create Moorline packages for other users or teams.
 
 Canonical naming:
 - [TERMINOLOGY.md](./TERMINOLOGY.md)
@@ -44,6 +44,7 @@ Important:
 - you do not need the Moorline repo locally
 - third-party authors should use `npx @moorline/package-kit`
 - users should install finished bundles, not raw source trees
+- packages run inside the operator-controlled Moorline runtime once activated
 
 ## Two Required Files
 
@@ -154,9 +155,14 @@ Use it when you want to integrate:
 - Discord
 - Slack
 - email
-- a custom chat surface
+- GitHub or issue trackers
+- CI systems
+- incident tools
+- a custom external surface
 
 Transport packages occupy the core `transport` activation key. Moorline activates at most one package for that key; packages that need to bridge multiple external surfaces should expose that multiplexing inside a single transport package.
+
+Transports can emit chat-like messages, native actions, resource lifecycle events, or generic external events. Use `external.event.received` when an outside system reports something that is not naturally a chat message, such as `issues.opened`, `workflow.failed`, `incident.triggered`, or `email.received`.
 
 ### Plugin
 
@@ -171,13 +177,13 @@ Use it for:
 - renderers
 - integrations
 
-Plugins are trusted local runtime code. Moorline validates plugin manifests, declared capabilities, package layout, and install safety, but it does not sandbox plugin JavaScript after the package is activated. Install third-party plugins only from sources you are willing to let run inside the local Moorline process.
+Plugins are trusted runtime code. Moorline validates plugin manifests, declared capabilities, package layout, and install safety, but it does not sandbox plugin JavaScript after the package is activated. Install third-party plugins only from sources you are willing to let run inside the operator-controlled Moorline process.
 
 Plugins can be activated or deactivated independently. Most plugins do not need an activation key, so many can be activated together.
 
-#### Package State And Jobs
+#### Package State, Jobs, And Work
 
-Plugins that need durable local state should use package state through the runtime context instead of asking the host for a feature-specific table. Declare:
+Plugins that need durable package state should use package state through the runtime context instead of asking the host for a feature-specific table. Declare:
 
 ```json
 {
@@ -234,7 +240,130 @@ export default {
 await context.cancelPackageJob('sync:primary');
 ```
 
-Package jobs are for package-owned behavior. If a feature is specific to one package, model it with package state and package jobs rather than adding host-owned concepts.
+Package jobs are for recurring package-owned behavior. They are timers that dispatch package actions.
+
+Plugins that need durable event-driven work should use package work items instead. Work items are runtime-owned queue records with idempotency keys, attempts, leases, retry/dead-letter states, optional external resources, and optional session bindings. Declare:
+
+```json
+{
+  "capabilities": ["package.work.manage"]
+}
+```
+
+Use work items for webhook retries, polling dedupe, CI failure repair, issue processing, inbox triage, or any workflow where work must survive runtime restarts:
+
+```js
+await context.enqueueWorkItem({
+  queue: 'github-issues',
+  idempotencyKey: 'github:acme/repo:issue:123',
+  externalResource: {
+    provider: 'github',
+    kind: 'issue',
+    id: 'acme/repo#123',
+    url: 'https://github.com/acme/repo/issues/123',
+    title: 'Improve setup'
+  },
+  payload: { action: 'opened' }
+});
+
+const item = await context.claimWorkItem({
+  queue: 'github-issues',
+  leaseSeconds: 300
+});
+
+if (item) {
+  try {
+    const created = await context.createSession({
+      requestedName: 'Issue 123',
+      runtimeMode: 'full-access',
+      objective: 'Investigate and prepare a fix for issue #123.',
+      externalResource: item.externalResource,
+      workItemId: item.workItemId
+    });
+    await context.completeWorkItem({ workItemId: item.workItemId, phase: 'session-created' });
+    console.log(created.session.sessionId);
+  } catch (error) {
+    await context.failWorkItem({
+      workItemId: item.workItemId,
+      error: error instanceof Error ? error.message : String(error),
+      retryAfter: new Date(Date.now() + 60_000).toISOString()
+    });
+  }
+}
+```
+
+Use package state for package-specific configuration or indexes, package jobs for schedules, and work items for durable queue/retry/recovery. Do not add host concepts for package-specific data unless multiple package families need the same host-owned primitive.
+
+#### External Events
+
+Plugins can declare and implement `onExternalEvent` to receive generic external events from transports:
+
+```json
+{
+  "hooks": ["onExternalEvent"],
+  "capabilities": ["package.work.manage"]
+}
+```
+
+```js
+export default {
+  manifest,
+  async onExternalEvent(event, context) {
+    if (event.source !== 'github' || event.eventName !== 'issues.opened') {
+      return { handled: false, continueDispatch: true };
+    }
+    await context.enqueueWorkItem({
+      queue: 'github-issues',
+      idempotencyKey: event.idempotencyKey,
+      externalResource: event.resource,
+      payload: { eventName: event.eventName, payload: event.payload }
+    });
+    return { handled: true };
+  }
+};
+```
+
+Use `onTransportEvent` for broad transport observation or chat-style message routing. Use `onExternalEvent` when the package handles non-chat events as workflow triggers.
+
+#### Gates And Headless Runs
+
+Plugins that need deterministic checks can run runtime gates:
+
+```js
+const gate = await context.runGate({
+  gateId: 'lint',
+  command: 'bun',
+  args: ['run', 'lint'],
+  required: true,
+  workItemId: item.workItemId,
+  sessionId: item.sessionId
+});
+```
+
+Plugins that need a one-shot provider assessment can use session-backed headless runs. Declare `provider.headless.run`:
+
+```json
+{
+  "capabilities": ["provider.headless.run"]
+}
+```
+
+```js
+const result = await context.runHeadless({
+  requestedName: 'Classify issue',
+  runtimeMode: 'read-only',
+  prompt: 'Return JSON with { "ready": boolean, "reason": string }.',
+  outputSchema: {
+    type: 'object',
+    required: ['ready', 'reason'],
+    properties: {
+      ready: { type: 'boolean' },
+      reason: { type: 'string' }
+    }
+  },
+  requireStructuredOutput: true
+});
+```
 
 ### Skill
 
@@ -390,6 +519,26 @@ Example:
   "description": "Example runtime plugin.",
   "entrypoint": "index.mjs",
   "capabilities": ["memory.read"]
+}
+```
+
+External event worker example:
+
+```json
+{
+  "id": "acme/github-worker",
+  "name": "acme/github-worker",
+  "version": "0.0.1",
+  "type": "plugin",
+  "description": "Turns GitHub issue events into durable Moorline work.",
+  "entrypoint": "index.mjs",
+  "capabilities": [
+    "package.work.manage",
+    "session.create",
+    "session.direct",
+    "provider.headless.run"
+  ],
+  "hooks": ["onExternalEvent"]
 }
 ```
 
@@ -593,13 +742,13 @@ npx @moorline/package-kit validate ./dist/moorline-bundle.tar.gz
 Default validation is structural only.
 It does not execute your package code.
 
-If you want a trusted local runtime import smoke test too:
+If you want a trusted runtime import smoke test too:
 
 ```bash
 npx @moorline/package-kit validate ./dist/moorline-bundle --runtime-smoke
 ```
 
-The runtime smoke test is still a trust decision, not a sandbox. Run it only for packages you are prepared to execute locally.
+The runtime smoke test is still a trust decision, not a sandbox. Run it only for packages you are prepared to execute in your current environment.
 
 Inspect the resolved package metadata:
 
@@ -609,7 +758,7 @@ npx @moorline/package-kit inspect ./dist/moorline-bundle
 
 ## How To Test Locally
 
-Install the directory bundle into your local Moorline runtime.
+Install the directory bundle into a Moorline runtime you control.
 
 Example:
 
