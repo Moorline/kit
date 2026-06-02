@@ -1,8 +1,10 @@
 # Moorline Kit
 
-This repository owns `@moorline/package-kit`, the package authoring SDK and CLI for third-party Moorline package builders.
+This repository owns `@moorline/package-kit`, the package authoring SDK and CLI for Moorline package builders.
 
 The host runtime lives in `Moorline/moorline`. Official installable packages live in `Moorline/packages`.
+
+Moorline packages extend an operator-controlled runtime. Package authors can build external surface adapters, providers, plugins, skills, and bundles that participate in durable event/work orchestration. Chat is one supported transport shape, not the architectural center.
 
 ## Development
 
@@ -37,7 +39,7 @@ bun run test:fast
 bun run build
 ```
 
-Package authoring documentation lives in `docs/PACKAGE_AUTHORING.md`.
+Package authoring documentation lives in `docs/PACKAGE_AUTHORING.md`. Shared wording lives in `docs/TERMINOLOGY.md`.
 
 ## Releases
 
