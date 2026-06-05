@@ -456,7 +456,7 @@ function copyStaticAssets(sourceDir: string, outputDir: string): void {
   }
 }
 
-function writeOfficialHttpDeclarations(outDir: string): void {
+function writeMoorlineHttpDeclarations(outDir: string): void {
   writeFileSync(
     join(outDir, 'index.d.ts'),
     [
@@ -513,8 +513,8 @@ function writeOfficialHttpDeclarations(outDir: string): void {
   );
 }
 
-function copyOfficialHttpRuntimeAssets(sourceDir: string, outDir: string, manifest: AnyManifest): void {
-  if (manifest.id !== 'official/http') {
+function copyMoorlineHttpRuntimeAssets(sourceDir: string, outDir: string, manifest: AnyManifest): void {
+  if (manifest.id !== 'moorline/http') {
     return;
   }
   const resourcesRoot = resolve(sourceDir, 'resources');
@@ -522,7 +522,7 @@ function copyOfficialHttpRuntimeAssets(sourceDir: string, outDir: string, manife
     cpSync(resourcesRoot, join(outDir, 'resources'), { recursive: true });
   }
   writeFileSync(join(outDir, 'server.mjs'), "export { ControlApiServer } from './index.mjs';\n", 'utf8');
-  writeOfficialHttpDeclarations(outDir);
+  writeMoorlineHttpDeclarations(outDir);
 }
 
 function assertNoTypeScriptSources(dir: string): void {
@@ -886,7 +886,7 @@ export async function bundlePackage(input: BundlePackageInput): Promise<BundlePa
     cpSync(join(sourceDir, 'manifest.json'), join(outDir, 'manifest.json'));
     cpSync(join(sourceDir, 'moorline.dist.json'), join(outDir, 'moorline.dist.json'));
     copyStaticAssets(sourceDir, outDir);
-    copyOfficialHttpRuntimeAssets(sourceDir, outDir, manifest);
+    copyMoorlineHttpRuntimeAssets(sourceDir, outDir, manifest);
   }
 
   await validateBuiltBundle(outDir, surface, input.runtimeSmoke ?? true);

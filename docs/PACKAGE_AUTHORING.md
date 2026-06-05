@@ -17,7 +17,7 @@ Moorline supports two package families:
 - add-ons
   - skills
 - bundles
-  - metadata-only packages that install and activate a curated set of other packages
+  - metadata-only packages that install and activate a declared set of other packages
 
 The practical difference is:
 
@@ -130,7 +130,7 @@ The normal distribution format is a finished bundle, not source code.
 
 ### API Adapter
 
-An API adapter package exposes Moorline's control API over a protocol. The official shipped adapter is `official/http`, and the official CLI currently talks to HTTP endpoints.
+An API adapter package exposes Moorline's control API over a protocol. The Moorline-shipped adapter is `moorline/http`, and the Moorline CLI currently talks to HTTP endpoints.
 
 API adapter packages occupy the core `api-adapter` activation key. Moorline selects at most one API adapter at a time.
 
@@ -400,7 +400,7 @@ Bundle members declare:
 
 Bundles are metadata-only. They should not ship runtime JavaScript behavior; put behavior in provider, transport, plugin, or skill packages.
 
-Bundle member resolution is source-backed. Members can be embedded by npm bundle packages, can point at an explicit source descriptor, or can resolve by package id through npm metadata. Do not rely on a host-shipped official catalog.
+Bundle member resolution is source-backed. Members can be embedded by npm bundle packages, can point at an explicit source descriptor, or can resolve by package id through npm metadata. Do not rely on a host-shipped package catalog.
 
 ## Authoring Structure
 
@@ -941,7 +941,7 @@ moorline package info acme/slack-transport --kind plugin
 moorline package install acme/slack-transport --kind plugin
 ```
 
-Community packages discovered through npm are labeled as community packages and are not reviewed by Moorline.
+Packages discovered through npm are identified by their npm scope and Moorline package metadata; Moorline does not review npm packages by default.
 
 ## Current Limitation
 
