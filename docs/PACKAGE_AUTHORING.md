@@ -467,7 +467,7 @@ Example:
 {
   "id": "acme/my-provider",
   "name": "acme/my-provider",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "provider",
   "description": "Example provider package.",
   "entrypoint": "index.mjs"
@@ -487,7 +487,7 @@ Example:
 {
   "id": "acme/my-transport",
   "name": "acme/my-transport",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "transport",
   "description": "Example transport package.",
   "entrypoint": "index.mjs"
@@ -514,7 +514,7 @@ Example:
 {
   "id": "acme/my-plugin",
   "name": "acme/my-plugin",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "plugin",
   "description": "Example runtime plugin.",
   "entrypoint": "index.mjs",
@@ -528,7 +528,7 @@ External event worker example:
 {
   "id": "acme/github-worker",
   "name": "acme/github-worker",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "plugin",
   "description": "Turns GitHub issue events into durable Moorline work.",
   "entrypoint": "index.mjs",
@@ -558,7 +558,7 @@ Example:
 {
   "id": "acme/my-skills",
   "name": "acme/my-skills",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "type": "skill",
   "description": "Example skill add-on.",
   "skillsRoot": "skills"
@@ -674,7 +674,7 @@ Example:
 {
   "name": "Acme Transport",
   "description": "Example transport package for Acme Chat.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "display": {
     "category": "transport",
     "tags": ["acme", "chat"]

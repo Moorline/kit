@@ -43,6 +43,6 @@ Package authoring documentation lives in `docs/PACKAGE_AUTHORING.md`. Shared wor
 
 ## Releases
 
-Publishing is manual for now. The initial public npm package is `@moorline/package-kit@0.0.1`.
+Publishing is manual for now. The initial public npm package is `@moorline/package-kit@0.0.2`.
 
 The release workflow only builds and smoke-tests the npm package tarball; it does not publish npm packages or upload GitHub release assets.

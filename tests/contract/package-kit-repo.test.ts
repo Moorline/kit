@@ -27,7 +27,7 @@ describe('package-kit repository contract', () => {
     const pkg = readJson(join(root, 'packages', 'package-kit', 'package.json'));
     expect(pkg.name).toBe('@moorline/package-kit');
     expect(pkg.license).toBe('MIT');
-    expect((pkg.dependencies as Record<string, string>)['@moorline/contracts']).toBe('0.0.1');
+    expect((pkg.dependencies as Record<string, string>)['@moorline/contracts']).toBe('0.0.2');
   });
 
   it('keeps release automation manual and non-publishing', () => {

@@ -16,7 +16,7 @@ describe('@moorline/package-kit', () => {
         {
           id: 'acme/http-adapter',
           name: 'acme/http-adapter',
-          version: '0.0.1',
+          version: '0.0.2',
           type: 'api-adapter',
           description: 'Test HTTP adapter.',
           entrypoint: 'index.mjs',
@@ -42,7 +42,7 @@ describe('@moorline/package-kit', () => {
           display: {
             name: 'Acme HTTP Adapter',
             description: 'Test HTTP adapter.',
-            version: '0.0.1',
+            version: '0.0.2',
             tags: ['http']
           }
         },
@@ -91,7 +91,7 @@ describe('@moorline/package-kit', () => {
         {
           id: 'acme/test-provider',
           name: 'acme/test-provider',
-          version: '0.0.1',
+          version: '0.0.2',
           type: 'provider',
           description: 'Test provider.',
           entrypoint: 'index.mjs'
@@ -108,7 +108,7 @@ describe('@moorline/package-kit', () => {
           schemaVersion: 1,
           name: 'Acme Test Provider',
           description: 'Test provider.',
-          version: '0.0.1'
+          version: '0.0.2'
         },
         null,
         2
@@ -185,7 +185,7 @@ describe('@moorline/package-kit', () => {
         {
           id: 'acme/mixed-plugin',
           name: 'acme/mixed-plugin',
-          version: '0.0.1',
+          version: '0.0.2',
           type: 'plugin',
           description: 'Plugin with a source marker and implementation helpers.',
           entrypoint: 'index.mjs',
@@ -203,7 +203,7 @@ describe('@moorline/package-kit', () => {
           schemaVersion: 1,
           name: 'Acme Mixed Plugin',
           description: 'Plugin with a source marker and implementation helpers.',
-          version: '0.0.1'
+          version: '0.0.2'
         },
         null,
         2
@@ -258,7 +258,7 @@ describe('@moorline/package-kit', () => {
         {
           id: 'acme/triage-skills',
           name: 'acme/triage-skills',
-          version: '0.0.1',
+          version: '0.0.2',
           type: 'skill',
           description: 'Triage skill pack.',
           skillsRoot: 'skills'
@@ -275,7 +275,7 @@ describe('@moorline/package-kit', () => {
           schemaVersion: 1,
           name: 'Acme Triage Skills',
           description: 'Triage skill pack.',
-          version: '0.0.1'
+          version: '0.0.2'
         },
         null,
         2
@@ -328,7 +328,7 @@ describe('@moorline/package-kit', () => {
           schemaVersion: 1,
           name: 'Invalid Defaults',
           description: 'Invalid defaults.',
-          version: '0.0.1'
+          version: '0.0.2'
         },
         null,
         2
@@ -339,7 +339,7 @@ describe('@moorline/package-kit', () => {
     await expect(bundlePackage({ sourceDir, outDir })).rejects.toThrow(/invalid semantic version banana/i);
 
     const manifest = JSON.parse(readFileSync(join(sourceDir, 'manifest.json'), 'utf8')) as Record<string, unknown>;
-    manifest.version = '0.0.1';
+    manifest.version = '0.0.2';
     writeFileSync(join(sourceDir, 'manifest.json'), JSON.stringify(manifest, null, 2), 'utf8');
 
     await expect(bundlePackage({ sourceDir, outDir })).rejects.toThrow(/invalid semantic version range not a range/i);
@@ -354,7 +354,7 @@ describe('@moorline/package-kit', () => {
         {
           id: 'acme/side-effect-plugin',
           name: 'acme/side-effect-plugin',
-          version: '0.0.1',
+          version: '0.0.2',
           type: 'plugin',
           description: 'Plugin with side effect.',
           entrypoint: 'index.mjs',
@@ -372,7 +372,7 @@ describe('@moorline/package-kit', () => {
           schemaVersion: 1,
           name: 'Acme Side Effect Plugin',
           description: 'Plugin with side effect.',
-          version: '0.0.1'
+          version: '0.0.2'
         },
         null,
         2
@@ -384,7 +384,7 @@ describe('@moorline/package-kit', () => {
       `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(markerPath)}, 'executed\\n', 'utf8'); export default { id: 'acme/side-effect-plugin', manifest: ${JSON.stringify({
         id: 'acme/side-effect-plugin',
         name: 'acme/side-effect-plugin',
-        version: '0.0.1',
+        version: '0.0.2',
         type: 'plugin',
         description: 'Plugin with side effect.',
         entrypoint: 'index.mjs',
@@ -411,7 +411,7 @@ describe('@moorline/package-kit', () => {
         {
           id: 'acme/github-worker',
           name: 'acme/github-worker',
-          version: '0.0.1',
+          version: '0.0.2',
           type: 'plugin',
           description: 'Turns GitHub issue events into durable Moorline work.',
           entrypoint: 'index.mjs',
@@ -435,7 +435,7 @@ describe('@moorline/package-kit', () => {
           schemaVersion: 1,
           name: 'GitHub Worker',
           description: 'Turns GitHub issue events into durable Moorline work.',
-          version: '0.0.1'
+          version: '0.0.2'
         },
         null,
         2
@@ -481,7 +481,7 @@ describe('@moorline/package-kit', () => {
         {
           id: 'acme/traversal-plugin',
           name: 'acme/traversal-plugin',
-          version: '0.0.1',
+          version: '0.0.2',
           type: 'plugin',
           entrypoint: 'index.mjs',
           capabilities: ['memory.read']
@@ -498,7 +498,7 @@ describe('@moorline/package-kit', () => {
           schemaVersion: 1,
           name: 'Traversal Plugin',
           description: 'Traversal test',
-          version: '0.0.1'
+          version: '0.0.2'
         },
         null,
         2
@@ -530,7 +530,7 @@ describe('@moorline/package-kit', () => {
         {
           id: 'acme/link-plugin',
           name: 'acme/link-plugin',
-          version: '0.0.1',
+          version: '0.0.2',
           type: 'plugin',
           entrypoint: 'index.mjs',
           capabilities: ['memory.read']
@@ -547,7 +547,7 @@ describe('@moorline/package-kit', () => {
           schemaVersion: 1,
           name: 'Link Plugin',
           description: 'Link test',
-          version: '0.0.1'
+          version: '0.0.2'
         },
         null,
         2
@@ -579,7 +579,7 @@ describe('@moorline/package-kit', () => {
         {
           id: 'acme/safe-output-provider',
           name: 'acme/safe-output-provider',
-          version: '0.0.1',
+          version: '0.0.2',
           type: 'provider',
           description: 'OutDir safety test.',
           entrypoint: 'index.mjs'
@@ -596,7 +596,7 @@ describe('@moorline/package-kit', () => {
           schemaVersion: 1,
           name: 'Safe Output Provider',
           description: 'OutDir safety test.',
-          version: '0.0.1'
+          version: '0.0.2'
         },
         null,
         2
