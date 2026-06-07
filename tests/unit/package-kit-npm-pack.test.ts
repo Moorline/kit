@@ -43,7 +43,7 @@ function writePluginSource(root: string): void {
   writeFileSync(join(root, 'environment.md'), '# Runtime Environment\n');
 }
 
-function writeOfficialHttpAdapterSource(root: string): void {
+function writeMoorlineHttpAdapterSource(root: string): void {
   mkdirSync(root, { recursive: true });
   mkdirSync(join(root, 'resources', 'migrations'), { recursive: true });
   mkdirSync(join(root, 'resources', 'policies'), { recursive: true });
@@ -52,7 +52,7 @@ function writeOfficialHttpAdapterSource(root: string): void {
   writeFileSync(join(root, 'package.json'), JSON.stringify({
     name: '@moorline/http',
     version: '1.0.0',
-    description: 'Official Moorline HTTP API adapter.',
+    description: 'Moorline HTTP API adapter.',
     type: 'module',
     main: './index.mjs',
     types: './index.d.ts',
@@ -79,11 +79,11 @@ function writeOfficialHttpAdapterSource(root: string): void {
     }
   }, null, 2));
   writeFileSync(join(root, 'manifest.json'), JSON.stringify({
-    id: 'official/http',
-    name: 'official/http',
+    id: 'moorline/http',
+    name: 'moorline/http',
     version: '1.0.0',
     type: 'api-adapter',
-    description: 'Official HTTP adapter',
+    description: 'Moorline HTTP adapter',
     entrypoint: 'index.mjs',
     configSchema: {
       type: 'object'
@@ -93,7 +93,7 @@ function writeOfficialHttpAdapterSource(root: string): void {
     schemaVersion: 1,
     display: {
       name: 'HTTP Adapter',
-      description: 'Official HTTP adapter',
+      description: 'Moorline HTTP adapter',
       version: '1.0.0',
       tags: ['http', 'api-adapter']
     }
@@ -219,11 +219,11 @@ describe('npmPackPackage', () => {
     })).rejects.toThrow(/scoped npm name/i);
   });
 
-  it('emits short official npm metadata for api-adapter packages', async () => {
+  it('emits short Moorline-owned npm metadata for api-adapter packages', async () => {
     const root = createTempRoot('moorline-npm-pack-api-adapter-');
     const sourceDir = join(root, 'source');
     const outDir = join(root, 'out', 'npm-packages');
-    writeOfficialHttpAdapterSource(sourceDir);
+    writeMoorlineHttpAdapterSource(sourceDir);
 
     const result = await npmPackPackage({
       sourceDir,
@@ -235,7 +235,7 @@ describe('npmPackPackage', () => {
     expect(packageJson).toMatchObject({
       name: '@moorline/http',
       version: '1.0.0',
-      description: 'Official Moorline HTTP API adapter.',
+      description: 'Moorline HTTP API adapter.',
       license: 'MIT',
       main: './index.mjs',
       types: './index.d.ts',
@@ -251,7 +251,7 @@ describe('npmPackPackage', () => {
       },
       moorline: {
         schemaVersion: 1,
-        packageId: 'official/http',
+        packageId: 'moorline/http',
         kind: 'api-adapter'
       }
     });
@@ -261,8 +261,8 @@ describe('npmPackPackage', () => {
     });
     expect(packageJson.keywords).toEqual(expect.arrayContaining([
       'moorline-kind-api-adapter',
-      'moorline-namespace-official',
-      'moorline-id-official-http'
+      'moorline-namespace-moorline',
+      'moorline-id-moorline-http'
     ]));
     const dryRun = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', result.npmPackageDir], { encoding: 'utf8' })) as Array<{
       files: Array<{ path: string }>;
