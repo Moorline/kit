@@ -297,11 +297,18 @@ describe('npmPackPackage', () => {
     expect(existsSync(join(result.npmPackageDir, 'packages', 'plugins', 'acme', 'slack', 'manifest.json'))).toBe(true);
     expect(existsSync(join(result.npmPackageDir, 'packages', 'plugins', 'acme', 'slack', 'index.mjs'))).toBe(true);
     const packageJson = JSON.parse(readFileSync(join(result.npmPackageDir, 'package.json'), 'utf8')) as Record<string, unknown>;
+    expect(packageJson).toMatchObject({
+      main: './index.mjs',
+      exports: {
+        '.': './index.mjs'
+      }
+    });
     expect(packageJson).not.toHaveProperty('dependencies');
     const dryRun = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', result.npmPackageDir], { encoding: 'utf8' })) as Array<{
       files: Array<{ path: string }>;
     }>;
     expect(dryRun[0]?.files.map((file) => file.path)).toEqual(expect.arrayContaining([
+      'index.mjs',
       'manifest.json',
       'packages/plugins/acme/slack/manifest.json',
       'packages/plugins/acme/slack/index.mjs'
