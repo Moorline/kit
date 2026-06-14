@@ -29,9 +29,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: cd ../moorline && bun install --frozen-lockfile
-      - run: cd ../moorline && bun run --filter '@moorline/contracts' build
-      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile --filter '!@moorline/package-kit'
+      - name: Install package-kit runtime dependencies
+        run: |
+          deps_dir="$(mktemp -d)"
+          npm install --prefix "$deps_dir" --ignore-scripts esbuild@0.25.12 semver@7.8.1 tar@7.5.15
+          rm -rf node_modules/@esbuild node_modules/@isaacs node_modules/chownr node_modules/esbuild node_modules/minipass node_modules/minizlib node_modules/semver node_modules/tar node_modules/yallist
+          cp -R "$deps_dir/node_modules/." node_modules/
+          rm -rf "$deps_dir"
+      - name: Build local contracts
+        run: |
+          node ../moorline/scripts/clean-package-dist.mjs contracts
+          ./node_modules/.bin/tsc -p ../moorline/packages/contracts/tsconfig.json --typeRoots ./node_modules/@types
       - name: Link local contracts
         run: |
           mkdir -p node_modules/@moorline
@@ -61,9 +70,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: cd ../moorline && bun install --frozen-lockfile
-      - run: cd ../moorline && bun run --filter '@moorline/contracts' build
-      - run: bun install --frozen-lockfile
+      - run: bun install --frozen-lockfile --filter '!@moorline/package-kit'
+      - name: Install package-kit runtime dependencies
+        run: |
+          deps_dir="$(mktemp -d)"
+          npm install --prefix "$deps_dir" --ignore-scripts esbuild@0.25.12 semver@7.8.1 tar@7.5.15
+          rm -rf node_modules/@esbuild node_modules/@isaacs node_modules/chownr node_modules/esbuild node_modules/minipass node_modules/minizlib node_modules/semver node_modules/tar node_modules/yallist
+          cp -R "$deps_dir/node_modules/." node_modules/
+          rm -rf "$deps_dir"
+      - name: Build local contracts
+        run: |
+          node ../moorline/scripts/clean-package-dist.mjs contracts
+          ./node_modules/.bin/tsc -p ../moorline/packages/contracts/tsconfig.json --typeRoots ./node_modules/@types
       - name: Link local contracts
         run: |
           mkdir -p node_modules/@moorline

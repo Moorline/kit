@@ -7,6 +7,86 @@ import { bundlePackage, inspectPackagePath, validatePackagePath } from '../../pa
 import { createTempRoot } from '../helpers/temp.js';
 
 describe('@moorline/package-kit', () => {
+  it('rejects packages and dependencies that use the retired official namespace', async () => {
+    const sourceDir = createTempRoot('moorline-package-kit-official-id-');
+    writeFileSync(
+      join(sourceDir, 'manifest.json'),
+      JSON.stringify(
+        {
+          id: 'official/http',
+          name: 'official/http',
+          version: '0.0.2',
+          type: 'plugin',
+          entrypoint: 'index.mjs',
+          capabilities: []
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    writeFileSync(
+      join(sourceDir, 'moorline.dist.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          display: {
+            name: 'Old Official',
+            description: 'Old namespace.',
+            version: '0.0.2'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    writeFileSync(join(sourceDir, 'index.mjs'), 'export default {};\n', 'utf8');
+
+    await expect(validatePackagePath({ path: sourceDir, surface: 'plugin' })).rejects.toThrow(/retired official\/\*/u);
+
+    const dependencyDir = createTempRoot('moorline-package-kit-official-dependency-');
+    writeFileSync(
+      join(dependencyDir, 'manifest.json'),
+      JSON.stringify(
+        {
+          id: 'acme/needs-old',
+          name: 'acme/needs-old',
+          version: '0.0.2',
+          type: 'plugin',
+          entrypoint: 'index.mjs',
+          capabilities: [],
+          dependencies: [{
+            packageId: 'official/http',
+            versionRange: '^0.0.1'
+          }]
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    writeFileSync(
+      join(dependencyDir, 'moorline.dist.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          display: {
+            name: 'Needs Old',
+            description: 'Old dependency namespace.',
+            version: '0.0.2'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    writeFileSync(join(dependencyDir, 'index.mjs'), 'export default {};\n', 'utf8');
+
+    await expect(validatePackagePath({ path: dependencyDir, surface: 'plugin' })).rejects.toThrow(/retired official\/\*/u);
+  });
+
   it('bundles and validates api-adapter packages as first-class installables', async () => {
     const sourceDir = createTempRoot('moorline-package-kit-api-adapter-');
     const outDir = join(sourceDir, 'bundle');
@@ -246,6 +326,110 @@ describe('@moorline/package-kit', () => {
     expect(existsSync(join(outDir, 'server.ts'))).toBe(false);
     const bundleValidation = await validatePackagePath({ path: outDir, surface: 'plugin' });
     expect(bundleValidation.mode).toBe('bundle');
+  });
+
+  it('embeds declared bundle members in installable bundle archives', async () => {
+    const root = createTempRoot('moorline-package-kit-embedded-bundle-');
+    const bundleSourceDir = join(root, 'defaults');
+    const pluginSourceDir = join(root, 'plugin');
+    const outDir = join(root, 'out');
+
+    mkdirSync(bundleSourceDir, { recursive: true });
+    writeFileSync(
+      join(bundleSourceDir, 'manifest.json'),
+      JSON.stringify(
+        {
+          id: 'acme/defaults',
+          name: 'acme/defaults',
+          version: '0.0.2',
+          type: 'bundle',
+          description: 'Acme defaults.',
+          members: [
+            {
+              kind: 'plugin',
+              packageId: 'acme/helper',
+              version: '~0.0.2',
+              activation: 'enable'
+            }
+          ]
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    writeFileSync(
+      join(bundleSourceDir, 'moorline.dist.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          display: {
+            name: 'Acme Defaults',
+            description: 'Acme defaults.',
+            version: '0.0.2'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+
+    mkdirSync(pluginSourceDir, { recursive: true });
+    writeFileSync(
+      join(pluginSourceDir, 'manifest.json'),
+      JSON.stringify(
+        {
+          id: 'acme/helper',
+          name: 'acme/helper',
+          version: '0.0.2',
+          type: 'plugin',
+          description: 'Helper plugin.',
+          entrypoint: 'index.mjs',
+          hooks: ['onAction'],
+          capabilities: []
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    writeFileSync(
+      join(pluginSourceDir, 'moorline.dist.json'),
+      JSON.stringify(
+        {
+          schemaVersion: 1,
+          display: {
+            name: 'Helper',
+            description: 'Helper plugin.',
+            version: '0.0.2'
+          }
+        },
+        null,
+        2
+      ),
+      'utf8'
+    );
+    writeFileSync(
+      join(pluginSourceDir, 'index.mjs'),
+      "import manifest from './manifest.json' with { type: 'json' };\nexport default { id: manifest.id, manifest };\n",
+      'utf8'
+    );
+
+    const bundled = await bundlePackage({
+      sourceDir: bundleSourceDir,
+      outDir,
+      surface: 'bundle',
+      embeddedMemberSourceDirs: [pluginSourceDir],
+      archive: true
+    });
+
+    expect(existsSync(join(outDir, 'packages', 'plugins', 'acme', 'helper', 'manifest.json'))).toBe(true);
+    expect(bundled.archivePath).toMatch(/\.tar\.gz$/);
+    await expect(validatePackagePath({ path: outDir, surface: 'bundle' })).resolves.toMatchObject({
+      surface: 'bundle',
+      mode: 'bundle'
+    });
   });
 
   it('bundles skill add-ons without a JavaScript entrypoint', async () => {

@@ -73,6 +73,7 @@ export interface BundlePackageInput {
   archiveFileName?: string;
   archiveOutDir?: string;
   runtimeSmoke?: boolean;
+  embeddedMemberSourceDirs?: string[];
 }
 
 export interface BundlePackageResult {
@@ -228,6 +229,17 @@ function requireString(input: Record<string, unknown>, key: string, context: str
   return value;
 }
 
+const PACKAGE_ID_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{0,62})\/[a-z0-9](?:[a-z0-9._-]{0,62})$/u;
+
+function assertPackageId(packageId: string, label: string): void {
+  if (!PACKAGE_ID_PATTERN.test(packageId)) {
+    throw new Error(`${label} must match <namespace>/<name> using lowercase letters, numbers, ".", "_" or "-": ${packageId}`);
+  }
+  if (packageId.startsWith('official/')) {
+    throw new Error(`${label} must not use the retired official/* package namespace: ${packageId}`);
+  }
+}
+
 function optionalString(input: Record<string, unknown>, key: string, context: string): string | undefined {
   const value = input[key];
   if (value === undefined) {
@@ -332,14 +344,17 @@ function assertValidPackageRange(input: { packageId: string; range: string | und
 }
 
 function validateManifestVersions(manifest: AnyManifest): void {
+  assertPackageId(manifest.id, 'manifest.id');
   assertValidPackageVersion({ packageId: manifest.id, version: manifest.version });
   for (const dependency of 'dependencies' in manifest ? manifest.dependencies ?? [] : []) {
+    assertPackageId(dependency.packageId, `Package ${manifest.id} dependency package id`);
     if (dependency.versionRange) {
       assertValidPackageRange({ packageId: dependency.packageId, range: dependency.versionRange });
     }
   }
   if ('members' in manifest) {
     for (const member of manifest.members) {
+      assertPackageId(member.packageId, `Bundle ${manifest.id} member package id`);
       assertValidPackageRange({ packageId: member.packageId, range: member.version });
     }
   }
@@ -719,6 +734,34 @@ function embeddedMemberPackagePath(bundleDir: string, surface: PackageKind, pack
   return join(bundleDir, 'packages', installSurfaceDir(surface), ...packageId.split('/'));
 }
 
+async function embedBundleMembers(input: {
+  bundleDir: string;
+  bundleManifest: BundlePackageManifest;
+  embeddedMemberSourceDirs: string[];
+}): Promise<void> {
+  if (input.embeddedMemberSourceDirs.length === 0) {
+    return;
+  }
+  const allowedMembers = new Set(input.bundleManifest.members.map((member) => `${member.kind}:${member.packageId}`));
+  for (const memberSourceDir of input.embeddedMemberSourceDirs) {
+    const resolvedMemberSourceDir = resolve(memberSourceDir);
+    const member = loadManifest(undefined, resolvedMemberSourceDir);
+    if (member.surface === 'bundle') {
+      throw new Error(`Bundle package ${input.bundleManifest.id} cannot embed bundle member ${member.manifest.id}.`);
+    }
+    const memberKey = `${member.surface}:${member.manifest.id}`;
+    if (!allowedMembers.has(memberKey)) {
+      throw new Error(`Embedded member ${memberKey} is not declared in bundle ${input.bundleManifest.id}.`);
+    }
+    await bundlePackage({
+      sourceDir: resolvedMemberSourceDir,
+      outDir: embeddedMemberPackagePath(input.bundleDir, member.surface, member.manifest.id),
+      surface: member.surface,
+      runtimeSmoke: false
+    });
+  }
+}
+
 function generatedPackageJson(input: {
   npmName: string;
   manifest: AnyManifest;
@@ -747,13 +790,19 @@ function generatedPackageJson(input: {
       '.': './index.mjs'
     }
   };
+  const metadataEntrypoint = {
+    main: './index.mjs',
+    exports: {
+      '.': './index.mjs'
+    }
+  };
   return {
     name: input.npmName,
     version: input.manifest.version,
     description,
     license,
     type: 'module',
-    ...(['bundle', 'skill'].includes(input.surface) ? {} : runtimeEntrypoint),
+    ...(['bundle', 'skill'].includes(input.surface) ? metadataEntrypoint : runtimeEntrypoint),
     ...(input.sourcePackage?.repository ? { repository: input.sourcePackage.repository } : {}),
     ...(homepage ? { homepage } : {}),
     publishConfig: {
@@ -768,6 +817,25 @@ function generatedPackageJson(input: {
       distroPath: 'moorline.dist.json'
     }
   };
+}
+
+function writeMetadataEntrypoint(outDir: string): void {
+  writeFileSync(
+    join(outDir, 'index.mjs'),
+    [
+      "import manifest from './manifest.json' with { type: 'json' };",
+      "import distro from './moorline.dist.json' with { type: 'json' };",
+      '',
+      'export { manifest, distro };',
+      'export default {',
+      '  id: manifest.id,',
+      '  manifest,',
+      '  distro',
+      '};',
+      ''
+    ].join('\n'),
+    'utf8'
+  );
 }
 
 function validateGeneratedNpmPackageJson(packageJson: Record<string, unknown>, manifest: AnyManifest, surface: PackageKind): void {
@@ -855,6 +923,9 @@ export async function bundlePackage(input: BundlePackageInput): Promise<BundlePa
 
   const { surface, manifest } = loadManifest(input.surface, sourceDir);
   const distro = resolveDistro(sourceDir, manifest);
+  if (input.embeddedMemberSourceDirs && input.embeddedMemberSourceDirs.length > 0 && surface !== 'bundle') {
+    throw new Error('embeddedMemberSourceDirs can only be used when bundling a bundle package.');
+  }
 
   if (surface === 'skill') {
     const skillManifest = manifest as SkillPackageManifest;
@@ -865,9 +936,16 @@ export async function bundlePackage(input: BundlePackageInput): Promise<BundlePa
     cpSync(join(sourceDir, 'manifest.json'), join(outDir, 'manifest.json'));
     cpSync(join(sourceDir, 'moorline.dist.json'), join(outDir, 'moorline.dist.json'));
     cpSync(skillsRoot, join(outDir, skillManifest.skillsRoot ?? 'skills'), { recursive: true });
+    writeMetadataEntrypoint(outDir);
   } else if (surface === 'bundle') {
     cpSync(join(sourceDir, 'manifest.json'), join(outDir, 'manifest.json'));
     cpSync(join(sourceDir, 'moorline.dist.json'), join(outDir, 'moorline.dist.json'));
+    writeMetadataEntrypoint(outDir);
+    await embedBundleMembers({
+      bundleDir: outDir,
+      bundleManifest: manifest as BundlePackageManifest,
+      embeddedMemberSourceDirs: input.embeddedMemberSourceDirs ?? []
+    });
   } else {
     const sourceEntry = findSourceEntrypoint(sourceDir, manifest as InstallableManifest, input.entry);
     await build({
@@ -923,36 +1001,15 @@ export async function npmPackPackage(input: NpmPackPackageInput): Promise<NpmPac
   const bundled = await bundlePackage({
     sourceDir,
     outDir: bundleDir,
-    runtimeSmoke: false
+    runtimeSmoke: false,
+    embeddedMemberSourceDirs: input.embeddedMemberSourceDirs
   });
   const npmPackageDir = npmPackagePath(outDir, input.npmName);
   rmSync(npmPackageDir, { recursive: true, force: true });
   mkdirSync(dirname(npmPackageDir), { recursive: true });
   cpSync(bundled.bundleDir, npmPackageDir, { recursive: true });
-  if (input.embeddedMemberSourceDirs && input.embeddedMemberSourceDirs.length > 0) {
-    if (bundled.surface !== 'bundle') {
-      throw new Error('embeddedMemberSourceDirs can only be used when npm-packing a bundle package.');
-    }
-    const allowedMembers = new Set(
-      (bundled.manifest as BundlePackageManifest).members.map((member) => `${member.kind}:${member.packageId}`)
-    );
-    for (const memberSourceDir of input.embeddedMemberSourceDirs) {
-      const resolvedMemberSourceDir = resolve(memberSourceDir);
-      const member = loadManifest(undefined, resolvedMemberSourceDir);
-      if (member.surface === 'bundle') {
-        throw new Error(`Bundle package ${bundled.manifest.id} cannot embed bundle member ${member.manifest.id}.`);
-      }
-      const memberKey = `${member.surface}:${member.manifest.id}`;
-      if (!allowedMembers.has(memberKey)) {
-        throw new Error(`Embedded member ${memberKey} is not declared in bundle ${bundled.manifest.id}.`);
-      }
-      await bundlePackage({
-        sourceDir: resolvedMemberSourceDir,
-        outDir: embeddedMemberPackagePath(npmPackageDir, member.surface, member.manifest.id),
-        surface: member.surface,
-        runtimeSmoke: false
-      });
-    }
+  if (input.embeddedMemberSourceDirs && input.embeddedMemberSourceDirs.length > 0 && bundled.surface !== 'bundle') {
+    throw new Error('embeddedMemberSourceDirs can only be used when npm-packing a bundle package.');
   }
   const packageJson = generatedPackageJson({
     npmName: input.npmName,
