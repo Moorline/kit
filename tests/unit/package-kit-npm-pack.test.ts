@@ -13,6 +13,9 @@ function writePluginSource(root: string): void {
     description: 'Acme Slack bridge for Moorline.',
     type: 'module',
     private: false,
+    dependencies: {
+      '@acme/slack-sdk': '^2.0.0'
+    },
     keywords: ['slack', 'team chat'],
     license: 'MIT',
     repository: {
@@ -156,6 +159,43 @@ function writeBundleSource(root: string): void {
   }, null, 2));
 }
 
+function writeProviderSource(root: string): void {
+  mkdirSync(root, { recursive: true });
+  mkdirSync(join(root, 'dist'), { recursive: true });
+  writeFileSync(join(root, 'package.json'), JSON.stringify({
+    name: '@acme/moorline-provider',
+    version: '1.0.0',
+    description: 'Acme provider.',
+    type: 'module',
+    main: './index.mjs',
+    files: ['dist', 'index.mjs', 'manifest.json', 'moorline.dist.json'],
+    dependencies: {
+      '@acme/provider-sdk': '1.2.3'
+    },
+    private: false,
+    license: 'MIT'
+  }, null, 2));
+  writeFileSync(join(root, 'manifest.json'), JSON.stringify({
+    id: 'acme/provider',
+    name: 'acme/provider',
+    version: '1.0.0',
+    type: 'provider',
+    description: 'Acme provider',
+    entrypoint: 'index.mjs'
+  }, null, 2));
+  writeFileSync(join(root, 'moorline.dist.json'), JSON.stringify({
+    schemaVersion: 1,
+    display: {
+      name: 'Acme Provider',
+      description: 'Acme provider',
+      version: '1.0.0'
+    }
+  }, null, 2));
+  writeFileSync(join(root, 'index.mjs'), "export { default } from './dist/runtimePackage.js';\n", 'utf8');
+  writeFileSync(join(root, 'dist', 'runtimePackage.js'), "import '@acme/provider-sdk'; export default { manifest: {} };\n", 'utf8');
+  writeFileSync(join(root, 'runtimePackage.ts'), "import '@acme/provider-sdk'; export default {};\n", 'utf8');
+}
+
 describe('npmPackPackage', () => {
   it('generates scoped npm package metadata and a valid tarball', async () => {
     const root = createTempRoot('moorline-npm-pack-');
@@ -188,7 +228,9 @@ describe('npmPackPackage', () => {
         kind: 'plugin'
       }
     });
-    expect(packageJson).not.toHaveProperty('dependencies');
+    expect(packageJson.dependencies).toEqual({
+      '@acme/slack-sdk': '^2.0.0'
+    });
     expect(packageJson).not.toHaveProperty('files');
     expect(packageJson.keywords).toEqual(expect.arrayContaining([
       'moorline-package',
@@ -315,6 +357,30 @@ describe('npmPackPackage', () => {
     ]));
     await expect(validatePackagePath({ path: result.tarballPath!, surface: 'bundle' })).resolves.toMatchObject({
       surface: 'bundle'
+    });
+  });
+
+  it('preserves dependency-backed provider package files instead of rebundling runtime dependencies', async () => {
+    const root = createTempRoot('moorline-npm-pack-provider-');
+    const sourceDir = join(root, 'source');
+    const outDir = join(root, 'out', 'npm-packages');
+    writeProviderSource(sourceDir);
+
+    const result = await npmPackPackage({
+      sourceDir,
+      outDir,
+      npmName: '@acme/moorline-provider'
+    });
+
+    const packageJson = JSON.parse(readFileSync(join(result.npmPackageDir, 'package.json'), 'utf8')) as Record<string, unknown>;
+    expect(packageJson.dependencies).toEqual({
+      '@acme/provider-sdk': '1.2.3'
+    });
+    expect(readFileSync(join(result.npmPackageDir, 'index.mjs'), 'utf8')).toContain('./dist/runtimePackage.js');
+    expect(readFileSync(join(result.npmPackageDir, 'dist', 'runtimePackage.js'), 'utf8')).toContain('@acme/provider-sdk');
+    expect(existsSync(join(result.npmPackageDir, 'runtimePackage.ts'))).toBe(false);
+    await expect(validatePackagePath({ path: result.tarballPath!, surface: 'provider', runtimeSmoke: false })).resolves.toMatchObject({
+      surface: 'provider'
     });
   });
 });
