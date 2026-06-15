@@ -119,6 +119,10 @@ interface SourcePackageMetadata {
   main?: string;
   types?: string;
   exports?: unknown;
+  files?: string[];
+  dependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
 }
 
 function readJson(path: string): unknown {
@@ -173,6 +177,24 @@ function optionalPackageJsonRepository(value: unknown): SourcePackageMetadata['r
   return repository;
 }
 
+function optionalPackageJsonDependencyMap(value: unknown, context: string): Record<string, string> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${context} must be an object when provided.`);
+  }
+  const dependencies = value as Record<string, unknown>;
+  const normalized: Record<string, string> = {};
+  for (const [name, version] of Object.entries(dependencies)) {
+    if (typeof version !== 'string' || version.trim().length === 0) {
+      throw new Error(`${context}.${name} must be a non-empty string.`);
+    }
+    normalized[name] = version;
+  }
+  return Object.keys(normalized).length > 0 ? normalized : undefined;
+}
+
 function readSourcePackageMetadata(sourceDir: string): SourcePackageMetadata {
   const packageJsonPath = join(sourceDir, 'package.json');
   if (!exists(packageJsonPath)) {
@@ -190,6 +212,10 @@ function readSourcePackageMetadata(sourceDir: string): SourcePackageMetadata {
   const main = optionalPackageJsonString(packageJson.main, 'package.json.main');
   const types = optionalPackageJsonString(packageJson.types, 'package.json.types');
   const keywords = validateStringArray(packageJson.keywords, 'package.json.keywords');
+  const files = validateStringArray(packageJson.files, 'package.json.files');
+  const dependencies = optionalPackageJsonDependencyMap(packageJson.dependencies, 'package.json.dependencies');
+  const optionalDependencies = optionalPackageJsonDependencyMap(packageJson.optionalDependencies, 'package.json.optionalDependencies');
+  const peerDependencies = optionalPackageJsonDependencyMap(packageJson.peerDependencies, 'package.json.peerDependencies');
   return {
     ...(description ? { description } : {}),
     ...(license ? { license } : {}),
@@ -198,6 +224,10 @@ function readSourcePackageMetadata(sourceDir: string): SourcePackageMetadata {
     ...(keywords ? { keywords } : {}),
     ...(main ? { main } : {}),
     ...(types ? { types } : {}),
+    ...(files ? { files } : {}),
+    ...(dependencies ? { dependencies } : {}),
+    ...(optionalDependencies ? { optionalDependencies } : {}),
+    ...(peerDependencies ? { peerDependencies } : {}),
     ...(packageJson.exports !== undefined ? { exports: packageJson.exports } : {})
   };
 }
@@ -722,6 +752,34 @@ function npmPackagePath(outDir: string, npmName: string): string {
   return join(outDir, scope!, name!);
 }
 
+function hasRuntimeNpmDependencies(sourcePackage: SourcePackageMetadata): boolean {
+  return Boolean(sourcePackage.dependencies || sourcePackage.optionalDependencies || sourcePackage.peerDependencies);
+}
+
+function copySourceNpmFiles(sourceDir: string, outDir: string, sourcePackage: SourcePackageMetadata): void {
+  const entries = sourcePackage.files && sourcePackage.files.length > 0
+    ? sourcePackage.files
+    : [
+        'dist',
+        'index.mjs',
+        'manifest.json',
+        'moorline.dist.json'
+      ];
+  for (const entry of entries) {
+    const sourcePath = join(sourceDir, entry);
+    if (!exists(sourcePath)) {
+      continue;
+    }
+    cpSync(sourcePath, join(outDir, entry), { recursive: true });
+  }
+  if (!exists(join(outDir, 'manifest.json'))) {
+    cpSync(join(sourceDir, 'manifest.json'), join(outDir, 'manifest.json'));
+  }
+  if (!exists(join(outDir, 'moorline.dist.json'))) {
+    cpSync(join(sourceDir, 'moorline.dist.json'), join(outDir, 'moorline.dist.json'));
+  }
+}
+
 function installSurfaceDir(surface: PackageKind): string {
   return surface === 'api-adapter'
     ? 'api-adapters'
@@ -805,6 +863,9 @@ function generatedPackageJson(input: {
     ...(['bundle', 'skill'].includes(input.surface) ? metadataEntrypoint : runtimeEntrypoint),
     ...(input.sourcePackage?.repository ? { repository: input.sourcePackage.repository } : {}),
     ...(homepage ? { homepage } : {}),
+    ...(input.sourcePackage?.dependencies ? { dependencies: input.sourcePackage.dependencies } : {}),
+    ...(input.sourcePackage?.optionalDependencies ? { optionalDependencies: input.sourcePackage.optionalDependencies } : {}),
+    ...(input.sourcePackage?.peerDependencies ? { peerDependencies: input.sourcePackage.peerDependencies } : {}),
     publishConfig: {
       access: 'public'
     },
@@ -846,8 +907,18 @@ function validateGeneratedNpmPackageJson(packageJson: Record<string, unknown>, m
   if (packageJson.version !== manifest.version) {
     throw new Error('Generated package.json version must match manifest.json version.');
   }
-  if ('dependencies' in packageJson) {
-    throw new Error('Moorline npm packages must not use npm dependencies for package resolution.');
+  for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+    const dependencies = packageJson[field];
+    if (dependencies !== undefined) {
+      if (!dependencies || typeof dependencies !== 'object' || Array.isArray(dependencies)) {
+        throw new Error(`Generated package.json.${field} must be an object when provided.`);
+      }
+      for (const [name, version] of Object.entries(dependencies as Record<string, unknown>)) {
+        if (typeof version !== 'string' || version.trim().length === 0) {
+          throw new Error(`Generated package.json.${field}.${name} must be a non-empty string.`);
+        }
+      }
+    }
   }
   const scripts = packageJson.scripts;
   if (scripts && typeof scripts === 'object') {
@@ -998,16 +1069,30 @@ export async function npmPackPackage(input: NpmPackPackageInput): Promise<NpmPac
   const outDir = resolve(input.outDir);
   const bundleDir = join(outDir, '.moorline-bundle-work', input.npmName.replace(/^@/u, '').replace('/', '-'));
   const sourcePackage = readSourcePackageMetadata(sourceDir);
-  const bundled = await bundlePackage({
-    sourceDir,
-    outDir: bundleDir,
-    runtimeSmoke: false,
-    embeddedMemberSourceDirs: input.embeddedMemberSourceDirs
-  });
+  const source = loadManifest(undefined, sourceDir);
+  const useSourcePackageFiles = source.surface === 'provider' && hasRuntimeNpmDependencies(sourcePackage);
+  const bundled = useSourcePackageFiles
+    ? {
+        surface: source.surface,
+        manifest: source.manifest,
+        distro: resolveDistro(sourceDir, source.manifest),
+        bundleDir: sourceDir
+      }
+    : await bundlePackage({
+        sourceDir,
+        outDir: bundleDir,
+        runtimeSmoke: false,
+        embeddedMemberSourceDirs: input.embeddedMemberSourceDirs
+      });
   const npmPackageDir = npmPackagePath(outDir, input.npmName);
   rmSync(npmPackageDir, { recursive: true, force: true });
   mkdirSync(dirname(npmPackageDir), { recursive: true });
-  cpSync(bundled.bundleDir, npmPackageDir, { recursive: true });
+  if (useSourcePackageFiles) {
+    mkdirSync(npmPackageDir, { recursive: true });
+    copySourceNpmFiles(sourceDir, npmPackageDir, sourcePackage);
+  } else {
+    cpSync(bundled.bundleDir, npmPackageDir, { recursive: true });
+  }
   if (input.embeddedMemberSourceDirs && input.embeddedMemberSourceDirs.length > 0 && bundled.surface !== 'bundle') {
     throw new Error('embeddedMemberSourceDirs can only be used when npm-packing a bundle package.');
   }
@@ -1020,7 +1105,7 @@ export async function npmPackPackage(input: NpmPackPackageInput): Promise<NpmPac
   });
   validateGeneratedNpmPackageJson(packageJson, bundled.manifest, bundled.surface);
   writeFileSync(join(npmPackageDir, 'package.json'), `${JSON.stringify(packageJson, null, 2)}\n`, 'utf8');
-  await validatePackagePath({ path: npmPackageDir, surface: bundled.surface });
+  await validatePackagePath({ path: npmPackageDir, surface: bundled.surface, runtimeSmoke: false });
   const tarballPath = join(outDir, '..', 'npm-tarballs', npmTarballName(input.npmName, bundled.manifest.version));
   await createNpmTgz(npmPackageDir, tarballPath);
   rmSync(join(outDir, '.moorline-bundle-work'), { recursive: true, force: true });
