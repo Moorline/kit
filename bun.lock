@@ -139,7 +139,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@moorline/contracts": ["@moorline/contracts@0.0.2", "", {}, "sha512-P08ZAIAVrHn7X2eIjc9SddmUgajBXOBOI6/6ByiS+vXML46CGqh7loqsWXlRusB3I9OwksDIox6I9c/Ulsds2w=="],
+    "@moorline/contracts": ["@moorline/contracts@0.0.2", "", {}, "sha512-WQr1etwDqzY1G1YAM9f7aNuvpHnBXEBa3V2NccQ9+peylklt7T9E0txJAcF1zNpGVB+UqNVge6ym+dVAXsbkuA=="],
 
     "@moorline/package-kit": ["@moorline/package-kit@workspace:packages/package-kit"],
 
