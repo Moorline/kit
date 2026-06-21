@@ -916,7 +916,7 @@ npm publish ./dist/moorline-npm/@acme/moorline-slack-transport --access public
 
 The generated `package.json` includes:
 
-- `keywords` including `moorline-package`, package kind, namespace, and package id markers
+- `keywords` containing the shared `moorline-package` discovery marker
 - an `moorline` metadata block that maps npm package identity to the Moorline package id
 - no npm dependencies for Moorline dependency resolution
 - no install-time lifecycle scripts

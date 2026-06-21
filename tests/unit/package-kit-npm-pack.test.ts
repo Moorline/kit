@@ -232,13 +232,7 @@ describe('npmPackPackage', () => {
       '@acme/slack-sdk': '^2.0.0'
     });
     expect(packageJson).not.toHaveProperty('files');
-    expect(packageJson.keywords).toEqual(expect.arrayContaining([
-      'moorline-package',
-      'moorline-kind-plugin',
-      'moorline-namespace-acme',
-      'moorline-id-acme-slack',
-      'team-chat'
-    ]));
+    expect(packageJson.keywords).toEqual(['moorline-package']);
     expect(result.tarballPath && existsSync(result.tarballPath)).toBe(true);
     const dryRun = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', result.npmPackageDir], { encoding: 'utf8' })) as Array<{
       files: Array<{ path: string }>;
@@ -301,11 +295,7 @@ describe('npmPackPackage', () => {
       url: 'git+ssh://git@github.com/Moorline/moorline.git',
       directory: 'packages/http'
     });
-    expect(packageJson.keywords).toEqual(expect.arrayContaining([
-      'moorline-kind-api-adapter',
-      'moorline-namespace-moorline',
-      'moorline-id-moorline-http'
-    ]));
+    expect(packageJson.keywords).toEqual(['moorline-package']);
     const dryRun = JSON.parse(execFileSync('npm', ['pack', '--dry-run', '--json', result.npmPackageDir], { encoding: 'utf8' })) as Array<{
       files: Array<{ path: string }>;
     }>;

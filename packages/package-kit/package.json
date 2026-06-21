@@ -36,5 +36,8 @@
     "type": "git",
     "url": "git+ssh://git@github.com/Moorline/kit.git",
     "directory": "packages/package-kit"
-  }
+  },
+  "keywords": [
+    "moorline-package"
+  ]
 }
