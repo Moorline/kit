@@ -734,15 +734,6 @@ function assertScopedNpmName(npmName: string): void {
   }
 }
 
-function npmKeywordSafe(value: string): string | null {
-  const normalized = value.toLowerCase().trim().replace(/[^a-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '');
-  return normalized ? normalized.slice(0, 64) : null;
-}
-
-function packageIdKeyword(packageId: string): string {
-  return `moorline-id-${packageId.replace('/', '-')}`;
-}
-
 function npmTarballName(npmName: string, version: string): string {
   return `${npmName.replace(/^@/u, '').replace('/', '-')}-${version}.tgz`;
 }
@@ -827,20 +818,9 @@ function generatedPackageJson(input: {
   distro: ResolvedMoorlineDistroMetadata;
   sourcePackage?: SourcePackageMetadata;
 }): Record<string, unknown> {
-  const namespace = input.manifest.id.split('/')[0]!;
-  const distroTags = input.distro.display.tags ?? [];
-  const sourceKeywords = input.sourcePackage?.keywords ?? [];
   const description = input.sourcePackage?.description ?? input.distro.display.description;
   const license = input.sourcePackage?.license ?? input.distro.display.license ?? 'UNLICENSED';
   const homepage = input.sourcePackage?.homepage ?? input.distro.display.homepageUrl;
-  const keywords = [
-    'moorline-package',
-    `moorline-kind-${input.surface}`,
-    `moorline-namespace-${namespace}`,
-    packageIdKeyword(input.manifest.id),
-    ...sourceKeywords.map((keyword) => npmKeywordSafe(keyword)).filter((keyword): keyword is string => Boolean(keyword)),
-    ...distroTags.map((tag) => npmKeywordSafe(tag)).filter((tag): tag is string => Boolean(tag))
-  ];
   const runtimeEntrypoint = {
     main: input.sourcePackage?.main ?? './index.mjs',
     ...(input.sourcePackage?.types ? { types: input.sourcePackage.types } : {}),
@@ -869,7 +849,7 @@ function generatedPackageJson(input: {
     publishConfig: {
       access: 'public'
     },
-    keywords: [...new Set(keywords)],
+    keywords: ['moorline-package'],
     moorline: {
       schemaVersion: 1,
       packageId: input.manifest.id,
@@ -937,11 +917,8 @@ function validateGeneratedNpmPackageJson(packageJson: Record<string, unknown>, m
   if (!Array.isArray(keywords) || !keywords.every((entry) => typeof entry === 'string')) {
     throw new Error('Generated package.json.keywords must be a string array.');
   }
-  const namespace = manifest.id.split('/')[0]!;
-  for (const keyword of ['moorline-package', `moorline-kind-${surface}`, `moorline-namespace-${namespace}`, packageIdKeyword(manifest.id)]) {
-    if (!keywords.includes(keyword)) {
-      throw new Error(`Generated package.json.keywords is missing ${keyword}.`);
-    }
+  if (!keywords.includes('moorline-package')) {
+    throw new Error('Generated package.json.keywords is missing moorline-package.');
   }
 }
 
