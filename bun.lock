@@ -20,12 +20,12 @@
     },
     "packages/package-kit": {
       "name": "@moorline/package-kit",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "bin": {
         "moorline-package-kit": "dist/cli.js",
       },
       "dependencies": {
-        "@moorline/contracts": "0.0.2",
+        "@moorline/contracts": "0.0.4",
         "esbuild": "^0.25.9",
         "semver": "^7.7.4",
         "tar": "^7.4.3",
@@ -139,7 +139,7 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@moorline/contracts": ["@moorline/contracts@0.0.2", "", {}, "sha512-WQr1etwDqzY1G1YAM9f7aNuvpHnBXEBa3V2NccQ9+peylklt7T9E0txJAcF1zNpGVB+UqNVge6ym+dVAXsbkuA=="],
+    "@moorline/contracts": ["@moorline/contracts@0.0.4", "", {}, "sha512-iIob7bCD8luUIHD7td9enSk4GgdJJcdUXljclmVcNXUlFmxkIGX/0gRVTdskof9Cao9bbKHp/EwPO4mU8OCIBQ=="],
 
     "@moorline/package-kit": ["@moorline/package-kit@workspace:packages/package-kit"],
 
