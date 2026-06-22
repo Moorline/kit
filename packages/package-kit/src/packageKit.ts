@@ -849,7 +849,7 @@ function generatedPackageJson(input: {
     publishConfig: {
       access: 'public'
     },
-    keywords: ['moorline-package'],
+    keywords: generatedNpmKeywords(input),
     moorline: {
       schemaVersion: 1,
       packageId: input.manifest.id,
@@ -858,6 +858,36 @@ function generatedPackageJson(input: {
       distroPath: 'moorline.dist.json'
     }
   };
+}
+
+function npmKeyword(value: string): string | null {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9._-]+/gu, '-').replace(/^-+|-+$/gu, '');
+  return normalized.length > 0 && /^[a-z0-9][a-z0-9._-]*$/u.test(normalized) ? normalized : null;
+}
+
+function packageIdKeyword(packageId: string): string | null {
+  return npmKeyword(`moorline-id-${packageId.replace('/', '-')}`);
+}
+
+function generatedNpmKeywords(input: {
+  manifest: AnyManifest;
+  surface: PackageKind;
+  distro: ResolvedMoorlineDistroMetadata;
+  sourcePackage?: SourcePackageMetadata;
+}): string[] {
+  const [namespace, name] = input.manifest.id.split('/');
+  const candidates = [
+    'moorline-package',
+    `moorline-kind-${input.surface}`,
+    packageIdKeyword(input.manifest.id),
+    namespace,
+    name,
+    ...(name?.split(/[-_]/u) ?? []),
+    input.surface,
+    ...(input.distro.display.tags ?? []),
+    ...(input.sourcePackage?.keywords ?? []).filter((keyword) => keyword !== 'moorline-package')
+  ];
+  return [...new Set(candidates.map((value) => (value ? npmKeyword(value) : null)).filter((value): value is string => Boolean(value)))].sort();
 }
 
 function writeMetadataEntrypoint(outDir: string): void {
