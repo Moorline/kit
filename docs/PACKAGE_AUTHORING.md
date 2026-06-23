@@ -164,6 +164,8 @@ Transport packages occupy the core `transport` activation key. Moorline activate
 
 Transports can emit chat-like messages, native actions, resource lifecycle events, or generic external events. Use `external.event.received` when an outside system reports something that is not naturally a chat message, such as `issues.opened`, `workflow.failed`, `incident.triggered`, or `email.received`.
 
+Transports that can render transient runtime work should advertise activity support and handle leased `transport.activity.set` effects. Activity is a resource-scoped work indicator, not durable presence. A transport should render active work in whatever native shape fits that surface and clear the rendering when the lease expires or an inactive effect arrives.
+
 ### Plugin
 
 A plugin package extends runtime behavior.
